@@ -1,3 +1,10 @@
+/*********************************
+ * Author: Francisco Viramontes
+ * Description: This program is intented to get a 
+ *  tempurature reading from /tmp/temp and check
+ *  if it matches criteria and write its result
+ *  to /tmp/status
+ *******************************/
 #include <stdio.h>
 #include <syslog.h> //For syslog()
 #include <signal.h> //For SIGHUP, SIGTERM
@@ -22,11 +29,13 @@
 
 #define DAEMON_NAME "iot_projd"
 
+//Time structure to get hours and minutes
 typedef struct {
 	int hr;
 	int min;
 }time_boi;
 
+//Structure made to parse JSON data
 typedef struct {
 	time_boi times[3];
 	time_boi curr_time;
@@ -35,6 +44,7 @@ typedef struct {
 
 config_time configs;
 
+//Taking the string result and change it to int values
 void string_to_time(char *time_bois, time_boi *t) {
 	int hr, min;
 	sscanf(time_bois, "%d:%d", &hr, &min);
@@ -43,7 +53,7 @@ void string_to_time(char *time_bois, time_boi *t) {
 }
 
 
-//Parses JSON content from cloud and prints result
+//Parses JSON content from cloud and logs result
 int parse_JSON(char *strJson, size_t nmemb) {
 	cJSON *root = cJSON_Parse(strJson);
 
@@ -136,6 +146,7 @@ void curl_init_string(struct curl_string *s) {
 	s->ptr[0] = '\0';
 }
 
+//Write function so that the curl get function can write to the string
 size_t write_fn(void *ptr, size_t size, size_t nmember, struct curl_string *s) {
 	size_t new_len = s->len + size*nmember;
 	s->ptr = realloc(s->ptr, new_len+1);
@@ -162,6 +173,7 @@ struct curl_string curl_get(struct curl_string s) {
 		curl_easy_setopt(curl, CURLOPT_URL, URL);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_fn);
 		//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, get_call);
+		//Write curl get result to s
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
 
 		res = curl_easy_perform(curl);
@@ -204,6 +216,7 @@ void _main_func() {
 	//printf("Tempurature is: %d\n", temp);
 
 
+		//Checks temp thresholds
 		if(temp > 75) {
 			FILE *filep;
 			filep = fopen("/tmp/status", "wb");
