@@ -1,15 +1,15 @@
 #For x86_64 bois
-CC=gcc
-CFLAGS=-Wall
-LIBS=-lcurl -lpthread
-LFLAGS=-L/usr/lib/x86_64-linux-gnu
+#CC=gcc
+#CFLAGS=-Wall
+#LIBS=-lcurl -lpthread
+#LFLAGS=-L/usr/lib/x86_64-linux-gnu
 
 #For ARM bois
-#B_ROOT_HOME=/home/franku/Downloads/buildroot-2018.02
-#CC=$(B_ROOT_HOME)/output/host/usr/bin/arm-linux-gcc
-#CFLAGS=--sysroot=$(B_ROOT_HOME)/output/staging
-#LFLAGS=
-#LIBS=-lcurl -uClibc -lc
+B_ROOT_HOME=/home/frankie/Downloads/buildroot-2018.02.1
+CC=$(B_ROOT_HOME)/output/host/usr/bin/arm-linux-gcc
+CFLAGS=--sysroot=$(B_ROOT_HOME)/output/staging
+LFLAGS=
+LIBS=-lcurl -uClibc -lc
 
 SRC=iot_project.c cJSON.c
 OBJ=$(SRC:.c=.o)

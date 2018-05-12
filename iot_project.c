@@ -43,8 +43,8 @@ void string_to_time(char *time_bois, time_boi *t) {
 }
 
 
-//Parses JSON content from cloud and updates config file
-void parse_JSON(char *strJson, size_t nmemb) {
+//Parses JSON content from cloud and prints result
+int parse_JSON(char *strJson, size_t nmemb) {
 	cJSON *root = cJSON_Parse(strJson);
 
 	//Updates
@@ -52,17 +52,19 @@ void parse_JSON(char *strJson, size_t nmemb) {
 	char *morn = cJSON_GetObjectItem(root, "morning")->valuestring;
 	char *night = cJSON_GetObjectItem(root, "night")->valuestring;
 
-	//string_to_time(day, &configs.times[0]);
-	//string_to_time(morn, &configs.times[1]);
+	string_to_time(day, &configs.times[0]);
+	string_to_time(morn, &configs.times[1]);
 	//string_to_time(night, &configs.times[2]);
-	printf("Day is: %s\n", day);
-	printf("Morning is: %s\n", morn);
-	printf("Night is: %s\n", night);
+	syslog(LOG_INFO, "Day is: %s\n", day);
+	syslog(LOG_INFO, "Morning is: %s\n", morn);
+	syslog(LOG_INFO, "Night is: %s\n", night);
 
 	cJSON_Delete(root);
+	return 0;
 
 }
 
+//Looks are JSON input
 size_t get_call(void *ptr, size_t size, size_t nmemb, void *stream) {
 	printf("INput: %s\n", (char *) ptr);
 	parse_JSON(ptr, nmemb);
@@ -117,49 +119,6 @@ int read_min() {
 	//printf("Time: %d:%d\n", hour, minute);
 }
 
-/*
-struct json_string{
-	char obj_ID[100];
-	char morn[100];
-	char day[100];
-	char night[100];
-}json_data;
-
-void string_parser(char *string) {
-	char body[400] = {"\0"};
-	strcpy(body, string);
-	memset(json_data.obj_ID, 0 100);
-	memset(json_data.morn, 0, 100);
-	memset(json_data.day, 0, 100);
-	memset(json_data.night, 0, 100);
-
-	char *ptr;
-	ptr = strtok(body, ",");
-	while(ptr != NULL) {
-		switch(count) {
-			case 0:
-				strcpy(json_data.obj_ID, ptr);
-				break;
-			case 1:
-				strcpy(json_data.morn, ptr);
-				break;
-			case 2:
-				strcpy(json_data.day, ptr);
-				break;
-			case 3:
-				strcpy(json_data.night, ptr);
-				break;
-			default:
-				printf("Error parsing json data\n");
-				break;
-		}
-		count++;
-		ptr = strtok(NULL, ",");
-	}
-}
-*/
-
-
 //Struct to get a string from curl get function
 struct curl_string {
 	char *ptr;
@@ -202,8 +161,8 @@ struct curl_string curl_get(struct curl_string s) {
 	if(curl) {
 		curl_easy_setopt(curl, CURLOPT_URL, URL);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_fn);
+		//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, get_call);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, get_call);
 
 		res = curl_easy_perform(curl);
 		if(res != CURLE_OK) {
@@ -244,7 +203,8 @@ void _main_func() {
 		int temp = read_temp();
 	//printf("Tempurature is: %d\n", temp);
 
-		if(temp > 70) {
+
+		if(temp > 75) {
 			FILE *filep;
 			filep = fopen("/tmp/status", "wb");
 			char *status = "OFF";
@@ -253,7 +213,7 @@ void _main_func() {
 			syslog(LOG_INFO, "OFF\n");
 
 		}
-		else if (temp < 60) {
+		else if (temp < 55) {
 			FILE *filep;
 			filep = fopen("/tmp/status", "wb");
 			char *status = "ON";
@@ -261,51 +221,24 @@ void _main_func() {
 			fclose(filep);
 			syslog(LOG_INFO, "ON\n");
 		}
-		sleep(5);
+
+
+		int min = read_min();
+		int hr = read_hour();
+		syslog(LOG_INFO, "The time(24 hr) is: %d:%d\n", hr, min);
+
+		struct curl_string s = curl_get(s);
+		syslog(LOG_INFO, "String: %s\n", s.ptr);
+		//printf("Cut up string: %zu\n", s.len);
+		
+
+		free(s.ptr);
+		sleep(15);
 	}
-
-	/*
-	int min = read_min();
-	int hr = read_hour();
-	printf("The time(24 hr) is: %d%d\n", hr, min);
-
-	struct curl_string s = curl_get(s);
-	printf("String: %s\n", s.ptr);
-	//printf("Cut up string: %zu\n", s.len);
-	*/
-
-	/*
-	FILE *filep;
-	filep = fopen("/tmp/get_response.txt", "wb");
-	if(filep == NULL) {
-		printf("Error opening file\n");
-		return 1;
-	}
-
-	fprintf(filep, s.ptr, s.len);
-	fclose(filep);
-
-	filep = fopen("/tmp/get_response.txt", "rb");
-	if(filep == NULL) {
-		printf("Error opening file\n");
-		return 1;
-	}
-	char get_r_str[50];
-	fgets(get_r_str, sizeof(get_r_str), filep);
-	fclose(filep);
-
-	int i;
-	for(i=0; i < 40; i++) {
-		printf("Piece '%s'\n", &get_r_str[i]);
-	}
-	*/
-
-	//free(s.ptr);
 }
 
-int main(void) {
-	openlog(DAEMON_NAME, LOG_PID | LOG_NDELAY | LOG_NOWAIT, LOG_DAEMON);
-	syslog(LOG_INFO, "Starting sampled\n");
+int _daemon_time() {
+	
 	
 	//Creating child process
 	pid_t pid = fork();
@@ -348,6 +281,32 @@ int main(void) {
 	signal(SIGHUP, _signal_handler);
 
 	_main_func();
+
+	return 0;
+}
+
+void help() {
+	printf("Help\nUsage:\n\t./iot_projd -h or iot_projd --help Displays help,\n");
+	printf("./iot_projd Runs daemon program that comunicates with a cloud database (still having trouble parsing JSON files) to turn heater on/off\n");
+}
+
+int main(int argc, char *argv[]) {
+	openlog(DAEMON_NAME, LOG_PID | LOG_NDELAY | LOG_NOWAIT, LOG_DAEMON);
+	syslog(LOG_INFO, "Starting IoT_Client simulation\n");
+
+	if(argc == 1) {
+		syslog(LOG_INFO, "Running the daemon\n");
+		_daemon_time();
+	}
+	else if (argc > 1) {
+		syslog(LOG_INFO, "Checking arguements\n");
+		int i;
+		for(i = 1; i < argc; i++) {
+			if((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0)) {
+				help();
+			}
+		}
+	}
 
 	return 0;
 }
